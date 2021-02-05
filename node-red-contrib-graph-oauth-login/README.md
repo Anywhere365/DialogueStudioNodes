@@ -1,6 +1,6 @@
 ## Introduction
 
-The Microsoft Graph Login node handles the login part on your Microsoft Graph app. The node will output an access and bearer token, as well as store it in a flow value so that you can access it any time while the container is running. The access token is required for all calls to Microsoft Graph.
+The Microsoft Graph Login node handles the login part on your Microsoft Graph API app. The node will output an access and bearer token, as well as store it in a flow value so that you can access it any time while the container is running. The access token is required for all calls to Microsoft Graph.
 
 This node aims to simplify using Microsoft Graph by handling the login procedure for you, since while making calls to the Microsoft Graph api is quite simple, the login procedure has a tendency to be error prone and does not provide useful error messages when failing to authenticate.
 
