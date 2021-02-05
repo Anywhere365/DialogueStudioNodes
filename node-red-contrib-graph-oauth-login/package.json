@@ -1,0 +1,20 @@
+{
+  "name": "node-red-contrib-graph-oauth-login",
+  "version": "1.1.2",
+  "author": "Anywhere365",
+  "description": "",
+  "license": "Anywhere365",
+  "main": "index.js",
+  "keywords": [ "node-red", "graph", "microsoft graph" ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "node-red": {
+    "nodes": {
+      "node-red-contrib-graph-oauth-login": "node-red-contrib-graph-oauth-login/node-red-contrib-graph-oauth-login.js"
+    }
+  },
+  "dependencies": {
+    "node-fetch": "2.6.1"
+  }
+}
