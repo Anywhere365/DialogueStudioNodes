@@ -1,0 +1,208 @@
+<style>
+    #red-ui-palette-graph .red-ui-palette-label {
+        color: #FFF !important;
+    }
+
+    .node-red-contrib-hide {
+        display: none;
+    }
+
+    .node_label-graph {
+        fill: #FFF !important;
+    }
+</style>
+
+<script type="text/javascript">
+    RED.nodes.registerType('node-red-contrib-graph-oauth-login', {
+        paletteLabel: "Graph login",
+        category: 'graph',
+        color: '#f73738',
+        defaults: {
+            name: { value: "" },
+            scope: { scope: "" },
+            redirecturi: { value: "" },
+            code: { value: "" },
+            encoding: { value: true },
+            logintype: { value: "Application" },
+        },
+        credentials: {
+            clientid: { value: "", type: "password" },
+            clientsecret: { value: "", type: "password" },
+            tenantid: { value: "", type: "password" }
+        },
+
+        labelStyle: "node_label-graph",
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-user",
+        label: function () {
+            return this.name || "Graph OAuth login";
+        }
+    });
+
+    $(function () {
+        // Hide fields initial
+        $(document).on("change",
+            "#node-input-logintype",
+            function (evt) {
+                var value = $(this).val();
+                $("#node-red-contrib-redirecturi,#node-red-contrib-code")
+                    .addClass("node-red-contrib-hide");
+
+                if (value == "Delegated") {
+                    $("#node-red-contrib-redirecturi").removeClass("node-red-contrib-hide");
+                    $("#node-red-contrib-code").removeClass("node-red-contrib-hide");
+                }
+            });
+
+        $('#node-input-logintype').change();
+    });
+</script>
+
+<script type="text/html" data-template-name="node-red-contrib-graph-oauth-login">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-logintype"><i class="fa fa-tag"></i> Login Type</label>
+        <select id="node-input-logintype">
+            <option value="Application">Without user</option>
+            <option value="Delegated">On behalf of user</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-clientid"><i class="fa fa-tag"></i> ClientId</label>
+        <input type="text" id="node-input-clientid" placeholder="ClientId">
+    </div>
+    <div class="form-row">
+        <label for="node-input-clientsecret"><i class="fa fa-tag"></i> ClientSecret</label>
+        <input type="text" id="node-input-clientsecret" placeholder="ClientSecret">
+    </div>
+    <div class="form-row">
+        <label for="node-input-scope"><i class="fa fa-tag"></i> Scope</label>
+        <input type="text" id="node-input-scope" placeholder="Scope">
+    </div>
+    <div class="form-row">
+        <label for="node-input-tenantid"><i class="fa fa-tag"></i> Tenantid</label>
+        <input type="text" id="node-input-tenantid" placeholder="Tenantid">
+    </div>
+
+    <div class="form-row node-red-contrib-hide" id="node-red-contrib-redirecturi">
+        <label for="node-input-redirecturi"><i class="fa fa-tag"></i> RedirectUri</label>
+        <input type="text" id="node-input-redirecturi" placeholder="RedirectUri">
+    </div>
+    <div class="form-row node-red-contrib-hide" id="node-red-contrib-code">
+        <label for="node-input-code"><i class="fa fa-tag"></i> Code</label>
+        <input type="text" id="node-input-code" placeholder="Code">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-encoding"><i class="fa fa-tag"></i> Apply Url Encoding</label>
+        <input type="checkbox" id="node-input-encoding" checked="checked" style="display: inline-block; width: auto;" placeholder="Encoding">
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="node-red-contrib-graph-oauth-login">
+    <p> Handles the login of your Graph app, see details for more info. </p>
+
+    <dl class="message-properties">
+        <dt>Logintype<span class="property-type">Option</span></dt>
+        <dd>
+            Choose between verfication for without user (Application permissions) or on behalf of user (Delegated permissions)
+        </dd>
+
+        <dt>Clientid<span class="property-type">string</span></dt>
+        <dd>
+            Contains the clientid of your Graph app. This is a password field.
+        </dd>
+
+        <dt>Clientsecret<span class="property-type">string</span></dt>
+        <dd>
+            Contains the clientsecret of your Graph app. This is a password field.
+        </dd>
+
+        <dt>Scope<span class="property-type">string</span></dt>
+        <dd>
+            The permissions you want to use are specified here. You can set multiple permissions, just use a space between permissions or %20 if you apply url encoding yourself.
+            Keep in mind that permission names are different depending on your login type. To name an example for each: User.Read ChannelMessage.Send (Delegated) or https://graph.microsoft.com/.default (Application)
+        </dd>
+
+         <dt>Tenantid<span class="property-type">string</span></dt>
+        <dd>
+            Contains the unique id of your company, this can be found in Azure. If you use application login you can also your assigned company url, which is usually company.com.
+            Your app needs to verified against your own environment to see if the app is allowed to access this. The url call is https://login.microsoftonline.com/TENANTID/oauth2/v2.0/token. This is a password field.
+        </dd>
+
+        <dt>RedirectUri<span class="property-type">string</span></dt>
+        <dd>
+            Only required for Delegated. Contains the redirecturi you specified for the app. If you have not altered this value it should be http://localhost
+        </dd>
+
+        <dt>Code<span class="property-type">string</span></dt>
+        <dd>
+            Only required for Delegated. One time valid code to login. After this the node will use the refresh token and keep refreshing it to keep the connection alive.
+            You can get the code at https://login.microsoftonline.com/TENANTID/oauth2/v2.0/authorize?client_id=CLIENTID&response_type=code&redirect_uri=REDIRECTURI&response_mode=query&scope=offline_access%20SCOPES&state=12345
+            So you need to include the tenantid, clientid of this app, the redirect uri of the app and the scopes / permissions you want access in this request.
+            If executed correctly, you will see a code= in the browser url bar. Copy this code, and put it in this field. The url generated will look like this:
+            http://localhost/?code=CODE&state=12345&session_state=201c5d43-cc55-4030-af0a-bf4d0754d9d0#
+        </dd>
+
+        <dt>Apply Url Encoding<span class="property-type">string</span></dt>
+        <dd>
+            Whether or not url encoding needs to be done for you. If false you will need to apply url encoding to all values yourself, otherwise by setting it to true it will url encode all fields for you.
+            To give an example, if url encoding is on you can set http://localhost in RedirectUri. If off, you need to set http%3A%2F%2Flocalhost instead.
+        </dd>
+    </dl>
+
+    <h3>Output Object</h3>
+    <dl class="message-properties">
+        <dt>msg.payload<span class="property-type">string</span></dt>
+        <dd>Contains the response of the login call, good or bad or a message that token is still valid</dd>
+        <dt>msg.payload.error<span class="property-type">string</span></dt>
+        <dd>In the event of an error on the Microsoft Graph side, this will contain their error response / code</dd>
+        <dt>msg.at<span class="property-type">string</span></dt>
+        <dd>The access_token to be used in your graph calls</dd>
+        <dt>msg.rt<span class="property-type">string</span></dt>
+        <dd>The refresh token if a delegated login is used. Will use access_token if application is chosen since there is no refresh token in that case.</dd>
+    </dl>
+
+    <h3>Flow variables Generated</h3>
+    <p>There are all the flow values that will be set upon a succesful request, flow variables exist as long as the container exists and no errors occur when refreshing. You can retrieve them via flow.get("FLOWNAME"); ClientId, ClientSecret and TenantId are stored on their actual id. If found it means they exist. This is to prevent people from reading out the value.</p>
+    <dl class="message-properties">
+        <dt>graphdelegatedaccesstoken<span class="property-type">string</span></dt>
+        <dd>The access_token to be used in your graph calls if you used delegated login</dd>
+        <dt>graphdelegatedbearertoken<span class="property-type">string</span></dt>
+        <dd>Bearer + the delegated access_token is set in this, this is how you are supposed to set the token in your calls/dd>
+        <dt>graphdelegatedrefreshtoken<span class="property-type">string</span></dt>
+        <dd>Contains the refresh token for delegated login</dd>
+        <dt>graphdelegatedrefreshtokenexpirationdate<span class="property-type">string</span></dt>
+        <dd>Expiration date of the token, identifying that a refresh needs to occur</dd>
+
+        <dt>graphdelegatedcode<span class="property-type">string</span></dt>
+        <dd>Saves the last used code to compare it in the next call to check if the code has changed and therefore a fresh login should be made rather then a refresh</dd>
+        <dt>graphdelegatedredirecturi<span class="property-type">string</span></dt>
+        <dd>Saves the last used redirecturi to compare it in the next call to check if the code has changed and therefore a fresh login should be made rather then a refresh</dd>
+        <dt>graphdelegatedscope<span class="property-type">string</span></dt>
+        <dd>Saves the last used delegated scope to compare it in the next call to check if the code has changed and therefore a fresh login should be made rather then a refresh</dd>
+
+        <dt>graphapplicationaccesstoken<span class="property-type">string</span></dt>
+        <dd>The access_token to be used in your graph calls if you used application login</dd>
+        <dt>graphapplicationbearertoken<span class="property-type">string</span></dt>
+        <dd>Bearer + the application access_token is set in this, this is how you are supposed to set the token in your calls</dd>
+        <dt>graphapplicationscope<span class="property-type">string</span></dt>
+        <dd>Saves the last used application scope to compare it in the next call to check if the code has changed and therefore a fresh login should be made rather then a refresh</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>
+        This node allows you to login on your Graph app. This login supports without user login (Application permissions),
+        as well as the on behalf of user login (Delegated permissions) by means of a generated code. This is used to verify against Microsoft's OAUTH2 login.
+        In the case of Delegated it will also set a timer to check if the refresh token from Graph is still valid and if it is not it will generate a fresh refresh and access token. Application never expires.
+        The node also allows the option to apply url encoding to the values if you do not want to do it yourself.
+    </p>
+</script>
+
+<script type="text/html" data-help-name="node-red-contrib-graph-oauth-login">
+    <p>A node that handles the graph oauth login / refresh on behalf of user (delegated permissions) via code and login without user (application permissions) </p>
+</script>
