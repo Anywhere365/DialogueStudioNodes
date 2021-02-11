@@ -15,6 +15,14 @@ While fetch is a normal call in regular javascript, nodejs unfortunately does no
 
 For more information about node-fetch: [https://www.npmjs.com/package/node-fetch](https://www.npmjs.com/package/node-fetch)
 
+## Update History
+
+### 1.1.3
+- Added Refresh after minutes option to state how long the token stays valid (or set to 0 if unneeded). Check is still done every minute if higher then zero
+- Access token for Application now also goes through the refresh cycle
+- Added the following flow values: graphdelegatedrefreshtokenexpirationdate, graphapplicationrefreshtimer and graphapplicationexpirationdate
+
+
 ## Useful links
 
 Here are some links to the subjects that we will discuss to give you a better understanding of what the permissions mean, what Microsoft Graph is and what url encoding does.
@@ -80,8 +88,9 @@ We will now go into detail on what parameters are part of the without user call.
 | Login Type | The login type you want to use, in this example, Without User is selected |
 | ClientId | The client id of the app you want to use |
 | ClientSecret | The permissions your app is supposed to have, keep in mind that the permission names are different between application and delegated |
-| Scope | The permissions your app is supposed to have, keep in mind that the permission names are different between application and delegated|
+| Scope | The permissions your app is supposed to have, keep in mind that the permission names are different between application and delegated |
 | TenantId | Id of your organization, can be found in the Azure portal |
+| Refresh after Minutes | After x amount of minutes refresh the token. If set to 0 no refresh is applied. The token is checked every minute to see if it is still valid |
 | Apply Url Encoding | Whether or not url encoding needs to be applied, read the url encoding chapter for more information to how this works. In the above screen we have applied url encoding ourselves so we will leave it as false |
 
 ### Flow Variables Set
@@ -97,7 +106,8 @@ Clientid, Clientsecret and Tenantid are stored on their actual id, so that it ca
 | graphapplicationaccesstoken | The access_token to be used in your Microsoft Graph calls if you used application login |
 | graphapplicationbearertoken | Bearer + the application access_token is set in this, this is how you are supposed to set the token in your calls |
 | graphapplicationscope | Saves the last used application scope to compare it in the next call to check if the code has changed and therefore a fresh login should be made rather then a refresh |
-  
+| graphapplicationexpirationdate | Expiration date of the delegated refresh token |
+| graphapplicationrefreshtimer | Amount of minutes added to the expiration date when a refresh is done |
 
 ## On behalf of User Login (Delegated permissions)
 
@@ -128,6 +138,7 @@ We will now go into detail on what parameters are part on the behalf of user cal
 | TenantId | Id of your organization, can be found in the Azure portal |
 | RedirectUri | Contains the redirecturi you specified for the app. If you have not altered this value it should be [http://localhost](http://localhost) |
 | Code | One time valid code to login. After this the node will use the refresh token and keep refreshing it to keep the connection alive |
+| Refresh after Minutes | After x amount of minutes refresh the token. If set to 0 no refresh is applied. The token is checked every minute to see if it is still valid |
 | Apply Url Encoding | Whether or not url encoding needs to be applied, read the url encoding chapter for more information to how this works. In the above screen we have not applied url encoding so we check this box to have the code do it for us |
 
 ### Flow Variables Set
@@ -146,6 +157,8 @@ Clientid, Clientsecret and Tenantid are stored on their actual id, so that it ca
 | graphdelegatedscope | Saves the last used application scope to compare it in the next call to check if the code has changed and therefore a fresh login should be made rather then a refresh |
 | graphdelegatedredirecturi | Saves the last used redirecturi to compare it in the next call to check if the code has changed and therefore a fresh login should be made rather then a refresh |
 | graphdelegatedcode | Saves the last used code to compare it in the next call to check if the code has changed and therefore a fresh login should be made rather then a refresh |
+| graphdelegatedrefreshtokenexpirationdate | Expiration date of the delegated refresh token |
+| graphdelegatedrefreshtimer | Amount of minutes added to the expiration date when a refresh is done |
 
 ## Using the node in a flow
 

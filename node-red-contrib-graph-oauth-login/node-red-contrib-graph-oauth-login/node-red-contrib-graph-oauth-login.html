@@ -24,6 +24,7 @@
             code: { value: "" },
             encoding: { value: true },
             logintype: { value: "Application" },
+            refreshtimer: {value: 59 },
         },
         credentials: {
             clientid: { value: "", type: "password" },
@@ -98,6 +99,11 @@
     </div>
 
     <div class="form-row">
+        <label for="node-input-refreshtimer"><i class="fa fa-tag"></i> Minutes until Refresh</label>
+        <input type="number" id="node-input-refreshtimer" placeholder="RefreshTimer">
+    </div>
+
+    <div class="form-row">
         <label for="node-input-encoding"><i class="fa fa-tag"></i> Apply Url Encoding</label>
         <input type="checkbox" id="node-input-encoding" checked="checked" style="display: inline-block; width: auto;" placeholder="Encoding">
     </div>
@@ -148,6 +154,12 @@
             http://localhost/?code=CODE&state=12345&session_state=201c5d43-cc55-4030-af0a-bf4d0754d9d0#
         </dd>
 
+        <dt> Minutes until Refresh<span class="property-type">string</span></dt>
+        <dd>
+            Depending on how your app is configured, eventually a refresh will be required. With delegated this is done via the refresh token, with application simply executing the same call.
+            Here you can put in the minutes until the next refresh must be forced. If 0 or lower a refresh will never be triggered.
+        </dd>
+
         <dt>Apply Url Encoding<span class="property-type">string</span></dt>
         <dd>
             Whether or not url encoding needs to be done for you. If false you will need to apply url encoding to all values yourself, otherwise by setting it to true it will url encode all fields for you.
@@ -185,6 +197,8 @@
         <dd>Saves the last used redirecturi to compare it in the next call to check if the code has changed and therefore a fresh login should be made rather then a refresh</dd>
         <dt>graphdelegatedscope<span class="property-type">string</span></dt>
         <dd>Saves the last used delegated scope to compare it in the next call to check if the code has changed and therefore a fresh login should be made rather then a refresh</dd>
+        <dt>graphdelegatedrefreshtimer<span class="property-type">string</span></dt>
+        <dd>Sets the amount of minutes until the next refresh. If zero the timer will not be active, but it will force a refresh every time the node is called using the refresh token. The timer checks every minute.</dd>
 
         <dt>graphapplicationaccesstoken<span class="property-type">string</span></dt>
         <dd>The access_token to be used in your graph calls if you used application login</dd>
@@ -192,13 +206,18 @@
         <dd>Bearer + the application access_token is set in this, this is how you are supposed to set the token in your calls</dd>
         <dt>graphapplicationscope<span class="property-type">string</span></dt>
         <dd>Saves the last used application scope to compare it in the next call to check if the code has changed and therefore a fresh login should be made rather then a refresh</dd>
+        <dt>graphapplicationexpirationdate<span class="property-type">string</span></dt>
+        <dd>Expiration date of the token, identifying that a refresh needs to occur</dd>
+        <dt>graphapplicationrefreshtimer<span class="property-type">string</span></dt>
+        <dd>Sets the amount of minutes until the next refresh. If zero the timer will not be active, but it will force a refresh every time the node is called. The timer checks every minute.</dd>
     </dl>
 
     <h3>Details</h3>
     <p>
         This node allows you to login on your Graph app. This login supports without user login (Application permissions),
         as well as the on behalf of user login (Delegated permissions) by means of a generated code. This is used to verify against Microsoft's OAUTH2 login.
-        In the case of Delegated it will also set a timer to check if the refresh token from Graph is still valid and if it is not it will generate a fresh refresh and access token. Application never expires.
+        In the Refresh Timer value is higher then zero (you can set your app to never expire) it will also set a timer to check if the refresh token from Graph is still valid and if it is not it will generate a fresh refresh and access token.
+        Note that Application permissions does not have a refresh token, simply making the same call is enough.
         The node also allows the option to apply url encoding to the values if you do not want to do it yourself.
     </p>
 </script>
