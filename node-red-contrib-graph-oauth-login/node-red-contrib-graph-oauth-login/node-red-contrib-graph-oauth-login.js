@@ -11,6 +11,7 @@ module.exports = function (RED) {
         this.redirecturi = config.redirecturi;
         this.encoding = config.encoding;
         this.logintype = config.logintype;
+        this.refreshtimer = config.refreshtimer;
 
         var node = this;
 
@@ -22,7 +23,7 @@ module.exports = function (RED) {
     //Entrance method of the node
     async function Login(flowContext, node, msg) {
         node.log("Type of login: " + node.logintype);
-        var isdelegated = node.logintype == "Delegated";
+        var isDelegated = node.logintype == "Delegated";
 
         if (node.credentials.clientid == undefined || node.credentials.clientid == "") {
             msg.payload = "Empty ClientId";
@@ -45,7 +46,7 @@ module.exports = function (RED) {
             return;
         }
 
-        if (isdelegated) {
+        if (isDelegated) {
 
             if (node.code == "") {
                 msg.payload = "Empty Code";
@@ -61,33 +62,25 @@ module.exports = function (RED) {
 
         //Check if initial login or that data has changed in the node fields, which also means a new login
         node.log("Checking for login / refresh");
-        node.refreshtoken = isdelegated ? flowContext.get("graphdelegatedrefreshtoken") : flowContext.get("graphapplicationaccesstoken");
+        node.refreshtoken = isDelegated ? flowContext.get("graphdelegatedrefreshtoken") : flowContext.get("graphapplicationaccesstoken");
         var initiallogin = IsInitialLogin(node, flowContext);
 
         //Inf initial login set the flow values for next time, if not, check for refresh window if delegated or return access token when using application permissions
         if (initiallogin) {
             SetInitialContext(flowContext, node);
         }
-        else if (isdelegated) {
-            var expirationdate = flowContext.get("graphdelegatedrefreshtokenexpirationdate");
-            var date = new Date();
-            node.log("Expiration date: " + expirationdate + ". Current date: " + date);
-
-            if (expirationdate != undefined && expirationdate > date) {
-                msg.payload = "Refresh token still valid, no further action will be taken";
-                node.log(msg.payload);
-                msg.at = flowContext.get("graphdelegatedaccesstoken");
-                msg.bearer = flowContext.get("graphdelegatedbearertoken");
-                msg.rt = flowContext.get("graphdelegatedrefreshtoken");
-                node.send(msg);
-                return;
-            }
-            else {
-                node.log("Refresh is required");
-            }
+        else if (isDelegated && NotExpired(flowContext, isDelegated, node)) {
+            msg.payload = "Refresh token still valid, no further action will be taken";
+            node.log(msg.payload);
+            msg.at = flowContext.get("graphdelegatedaccesstoken");
+            msg.bearer = flowContext.get("graphdelegatedbearertoken");
+            msg.rt = flowContext.get("graphdelegatedrefreshtoken");
+            node.send(msg);
+            return;
         }
-        else {
-            msg.payload = "Application access token does not expire, no further action will be taken";
+
+        else if (!isDelegated && NotExpired(flowContext, isDelegated, node)) {
+            msg.payload = "Application access token still valid, no further action will be taken";
             node.log(msg.payload);
             msg.at = flowContext.get("graphapplicationaccesstoken");
             msg.rt = msg.at;
@@ -97,15 +90,53 @@ module.exports = function (RED) {
         }
 
         var response = await ExecuteLogin(flowContext, node, initiallogin);
-        node.log("Login done, setting msg object with: " + response);
+        node.log("Login done");
 
         if (response != undefined) {
             SetMessageResponse(msg, response, node);
         }
     }
 
+    function NotExpired(flowContext, isDelegated, node) {
+        var expirationdate = isDelegated ? flowContext.get("graphdelegatedrefreshtokenexpirationdate") : flowContext.get("graphapplicationexpirationdate");
+        var flowRefreshTimer = isDelegated ? flowContext.get("graphdelegatedrefreshtimer") : flowContext.get("graphapplicationrefreshtimer");
+        var refreshtimer = node.refreshtimer;
+        var date = new Date();
+
+        if (refreshtimer == undefined || refreshtimer == null || refreshtimer < 0) {
+            refreshtimer = 0;
+        }
+
+        if (flowRefreshTimer == undefined || flowRefreshTimer == null || flowRefreshTimer < 0) {
+            flowRefreshTimer = 0;
+        }
+
+        if (flowRefreshTimer != refreshtimer) {
+            node.log("Refresh time changed. Old: " + flowRefreshTimer + " New: " + refreshtimer);
+
+            if (isDelegated) {
+                flowContext.set("graphdelegatedrefreshtimer", refreshtimer);
+            }
+            else {
+                flowContext.set("graphapplicationrefreshtimer", refreshtimer);
+            }
+
+            node.log("Timer change, performing refresh");
+            return false;
+        }
+
+        if (refreshtimer == 0) {
+            node.log("Timer set to zero, performing refresh");
+            return false;
+        }
+
+        node.log("Expiration date: " + expirationdate + ". Current date: " + date);
+        return expirationdate != undefined && expirationdate > date;
+    }
+
     //Timer object needs to be defined, otherwise we cannot kill the old timer
-    var timer;
+    var delegatedTimer;
+    var applicationTimer;
 
     //THe actual to Graph, done after checking the values upon calling the node or when the refresh is called by the timer
     async function ExecuteLogin(flowContext, node, initiallogin) {
@@ -118,12 +149,16 @@ module.exports = function (RED) {
             var tenantid = node.encoding ? encodeURIComponent(node.credentials.tenantid) : node.credentials.tenantid;
             var redirecturi = node.encoding ? encodeURIComponent(node.redirecturi) : node.redirecturi;
             var scope = node.encoding ? encodeURIComponent(node.scope) : node.scope;
-            var isdelegated = node.logintype == "Delegated";
+            var isDelegated = node.logintype == "Delegated";
 
-            form = encodeURIComponent('client_id') + "=" + clientid + "&" + encodeURIComponent('client_secret') + "=" + clientsecret + "&" + encodeURIComponent('scope') + "=" + scope + "&" + encodeURIComponent('grant_type') + "=";
+            form = encodeURIComponent('client_id') + "=" + clientid + "&"
+                + encodeURIComponent('client_secret') + "=" + clientsecret + "&"
+                + encodeURIComponent('scope') + "=" + scope + "&" + encodeURIComponent('grant_type') + "=";
 
-            if (initiallogin == true) {
-                form = isdelegated ? form + encodeURIComponent('authorization_code') + "&" + encodeURIComponent('code') + "=" + code : form + encodeURIComponent('client_credentials');
+            if (initiallogin == true || !isDelegated) {
+                form = isDelegated
+                    ? form + encodeURIComponent('authorization_code') + "&" + encodeURIComponent('code') + "=" + code
+                    : form + encodeURIComponent('client_credentials');
             }
             else {
                 var rt = encodeURIComponent('refresh_token');
@@ -131,7 +166,7 @@ module.exports = function (RED) {
                 form = form + rt + "&" + rt + "=" + encodeURIComponent(node.refreshtoken);
             }
 
-            if (isdelegated) {
+            if (isDelegated) {
                 form = form + "&" + encodeURIComponent('redirect_uri') + "=" + redirecturi;
             }
 
@@ -148,32 +183,23 @@ module.exports = function (RED) {
                     'Host': 'login.microsoftonline.com'
                 },
                 body: form
-            })
-                .then(response => response.json());
+            }).then(response => response.json());
 
             if (response.access_token != undefined) {
                 var accesstoken = response.access_token;
                 var bearer = "Bearer " + accesstoken;
 
-
-                if (isdelegated) {
+                if (isDelegated) {
                     flowContext.set("graphdelegatedaccesstoken", accesstoken);
                     flowContext.set("graphdelegatedbearertoken", bearer);
                     flowContext.set("graphdelegatedrefreshtoken", response.refresh_token);
-                    var date = new Date();
-                    flowContext.set("graphdelegatedrefreshtokenexpirationdate", new Date(date.setMinutes(59)));
-
-                    if (timer) {
-                        clearInterval(timer);
-                    }
-
-                    timer = setInterval(function () { ExpirationCheck(flowContext, node); }, 60000);
                 }
                 else {
                     flowContext.set("graphapplicationaccesstoken", accesstoken);
-                    flowContext.set("graphapplicationbearertoken", bearer);
+                    flowContext.set("graphapplicationbearertoken", bearer);                    
                 }
 
+                SetTimer(flowContext, node, isDelegated);
                 node.log("Tokens set");
             }
             else {
@@ -185,6 +211,49 @@ module.exports = function (RED) {
         catch (error) {
             node.log(error);
             return error;
+        }
+    }
+
+    function SetTimer(flowContext, node, isDelegated) {
+        var expirationdate = new Date();
+        //Despite being a number in the UI, it is not an actual number, however + string is accepted in JS and will create some wonky results, so be sure to parse to int
+        var refreshtimer = parseInt(node.refreshtimer);
+        expirationdate.setMinutes(expirationdate.getMinutes() + refreshtimer);
+
+        node.log("Setting Expiration date to: " + expirationdate);
+
+        if (isDelegated) {
+            flowContext.set("graphdelegatedrefreshtokenexpirationdate", expirationdate);
+
+            //Unfortunately we cannot use timer as a parameter, js does not understand this and will not kill the old timer because it always sees it as a new timer, thus creating continous timers
+            if (delegatedTimer) {
+                node.log("Removing old delegated timer");
+                clearInterval(delegatedTimer);
+            }
+
+            if (node.refreshtimer > 0) {
+                node.log("Setting new Delegated timer");
+                delegatedTimer = setInterval(function () { ExpirationCheck(flowContext, node, expirationdate); }, 60000);
+            }
+            else {
+                node.log("No timer specified");
+            }
+        }
+        else {
+            flowContext.set("graphapplicationexpirationdate", expirationdate);
+
+            if (applicationTimer) {
+                node.log("Removing old application timer");
+                clearInterval(applicationTimer);
+            }
+
+            if (node.refreshtimer > 0) {
+                node.log("Setting new application timer");
+                applicationTimer = setInterval(function () { ExpirationCheck(flowContext, node, expirationdate); }, 60000);
+            }
+            else {
+                node.log("No timer specified");
+            }
         }
     }
 
@@ -206,10 +275,9 @@ module.exports = function (RED) {
     }
 
     //Timer method
-    async function ExpirationCheck(flowContext, node) {
+    async function ExpirationCheck(flowContext, node, expirationdate) {
         node.log("Interval reached. Checking if refresh is required");
 
-        var expirationdate = flowContext.get("graphdelegatedrefreshtokenexpirationdate");
         var date = new Date();
         node.log("Expiration date: " + expirationdate + ". Current date: " + date);
 
@@ -307,14 +375,18 @@ module.exports = function (RED) {
         flowContext.set(node.credentials.clientsecret, true);
         flowContext.set(node.credentials.tenantid, true);
 
+        var refreshtimer = node.refreshtimer == undefined || node.refreshtimer < 0 || node.refreshtimer == null ? 0 : node.refreshtimer;
+
         if (node.logintype == "Delegated") {
             flowContext.set("graphdelegatedcode", node.code);
             flowContext.set("graphdelegatedredirecturi", node.redirecturi);
             flowContext.set("graphdelegatedscope", node.scope);
+            flowContext.set("graphdelegatedrefreshtimer", refreshtimer);
             return;
         }
 
         flowContext.set("graphapplicationscope", node.scope);
+        flowContext.set("graphapplicationrefreshtimer", refreshtimer);
     }
 
     //Credenitals need to be registered in the js as well, otherwise Node-Red will throw an error that it does not recgonize these types
