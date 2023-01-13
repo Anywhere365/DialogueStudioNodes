@@ -6,6 +6,13 @@ more information about the JWT token and the structure can be found at [https://
 
 You can download the node from the node-red library
 
+## Important
+
+You need to install the jsonwebtoken library upfront
+npm install jsonwebtoken
+
+This can be done for example with an exec-node
+
 
 ## Other libraries used
 this node needs a msg.body and a msg.secret, or both can be entered in the node config page
