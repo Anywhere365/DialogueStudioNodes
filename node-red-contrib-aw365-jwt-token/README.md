@@ -8,7 +8,7 @@ You can download the node from the node-red library
 
 ## Important
 
-You need to install the jsonwebtoken library upfront
+You need to install the jsonwebtoken library upfront <br>
 npm install jsonwebtoken
 
 This can be done for example with an exec-node
